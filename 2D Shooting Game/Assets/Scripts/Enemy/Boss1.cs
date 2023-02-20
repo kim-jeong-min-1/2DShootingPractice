@@ -8,38 +8,44 @@ public class Boss1 : BossEnemy
     private Vector3 centerPos = new Vector3(4.5f, 0f, 0f);
     private float patternTime = 0;
     private float currentTime = 0;
-    private int prePattern;
+    private int curPattern;
+    private int startPatternSet = 0;
 
     protected override void PatternStart()
     {
         StartCoroutine(BossAI_Update());
     }
-
     private IEnumerator BossAI_Update()
     {
+        yield return StartCoroutine(MovePosition(transform.position, centerPos, 3f));
+
         while (isBossAlive)
         {
             yield return StartCoroutine(Think());
             yield return new WaitForSeconds(1.5f);
         }
     }
-
     private IEnumerator Think()
     {
-        Debug.Log("Think....");
-        int randPattern;
-        do
+        if(startPatternSet < 5)
         {
-            randPattern = 5;
-            //randPattern = Random.Range(1, 4);
-            yield return null;
+            startPatternSet++;
+            curPattern = startPatternSet;
+        }
+        else
+        {
+            int randPattern;
+            do
+            {
+                randPattern = Random.Range(1, 6);
+                yield return null;
 
-        } while (randPattern == prePattern);
-
-        prePattern = randPattern;
+            } while (randPattern == curPattern);
+            curPattern = randPattern;
+        }   
         currentTime = 0;
 
-        switch (randPattern)
+        switch (curPattern)
         {
             case 1: yield return StartCoroutine(Pattern1()); break;
             case 2: yield return StartCoroutine(Pattern2()); break;
@@ -49,7 +55,6 @@ public class Boss1 : BossEnemy
         }
         yield break;
     }
-
     private IEnumerator Pattern1()
     {
         patternTime = 15f;
@@ -113,18 +118,30 @@ public class Boss1 : BossEnemy
     }
     private IEnumerator Pattern3()
     {
-        patternTime = 8f;
-        while (true)
+        patternTime = 15f;
+        while (currentTime <= patternTime)
         {
             List<EnemyBullet> bullets1 = new List<EnemyBullet>();
             List<EnemyBullet> bullets2 = new List<EnemyBullet>();
 
             StartCoroutine(spawnBullet(bullets1));
-            yield return new WaitForSeconds(0.5f);
             StartCoroutine(spawnBullet(bullets2));
 
+            yield return new WaitForSeconds(2f);
+            foreach (var bullet in bullets1)
+            {
+                if (bullet == null) continue;
+                bullet.bulletSpeed = 6.5f;
+                bullet.Shot();
+            }
+            foreach (var bullet in bullets2)
+            {
+                if (bullet == null) continue;
+                bullet.bulletSpeed = 6.5f;
+                bullet.Shot();
+            }
 
-            yield return new WaitForSeconds(3f);
+            yield return new WaitForSeconds(0.5f);
             foreach (var bullet in bullets2)
             {
                 if (bullet == null) continue;
@@ -133,20 +150,15 @@ public class Boss1 : BossEnemy
                 var z = Mathf.Atan2(dis.y, dis.x) * Mathf.Rad2Deg;
 
                 bullet.transform.rotation = Quaternion.Euler(0, 0, z);
-                bullet.bulletSpeed = 4f;
-                bullet.Shot();
-            }
-            foreach (var bullet in bullets1)
-            {
-                if (bullet == null) continue;
-                bullet.bulletSpeed = 6.5f;
+                bullet.bulletSpeed = 12f;
                 bullet.Shot();
             }
 
             bullets1.Clear();
             bullets2.Clear();
+            yield return new WaitForSeconds(1f);
 
-            yield return new WaitForSeconds(patternTime - 1f);
+            currentTime += 3.5f;
         }
         IEnumerator spawnBullet(List<EnemyBullet> bullets = null)
         {
@@ -175,34 +187,91 @@ public class Boss1 : BossEnemy
         float radius = 0.2f;
         var wait = new WaitForSeconds(0.0000001f);
 
-        Vector3 centerPos = new Vector3(0, 0, 0);
-        Stack<EnemyBullet> bullets = new Stack<EnemyBullet>();
+        Vector3 centerPos1 = new Vector3(-1, 2.5f, 0);
+        Vector3 centerPos2 = new Vector3(-1, -2.5f, 0);
+
+        Stack<EnemyBullet> bullets1 = new Stack<EnemyBullet>();
+        Stack<EnemyBullet> bullets2 = new Stack<EnemyBullet>();
 
         for (int i = 0; i < 5; i++)
         {
             for (int j = i * 10; j < 360 + i * 10 * 2; j++)
             {
-                if(j % 5 == 0)
+                if (j % 5 == 0)
                 {
                     var Pos =
-                        centerPos + new Vector3(Mathf.Cos(j * Mathf.Deg2Rad) * radius, Mathf.Sin(j * Mathf.Deg2Rad) * radius);
+                        centerPos1 + new Vector3(Mathf.Cos(j * Mathf.Deg2Rad) * radius, Mathf.Sin(j * Mathf.Deg2Rad) * radius);
                     var bullet = Instantiate(bossBullet3, Pos, Quaternion.Euler(0, 0, j));
                     bullet.shotOnAwake = false;
-                    bullets.Push(bullet);
+                    bullets1.Push(bullet);
                     yield return wait;
                 }
                 radius += 0.001f;
             }
         }
-        foreach (var bullet in bullets)
+
+        radius = 0.2f;
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = i * 5; j < 360 + i * 5 * 2; j++)
+            {
+                if (j % 10 == 0)
+                {
+                    var Pos =
+                        centerPos2 + new Vector3(Mathf.Cos(j * Mathf.Deg2Rad) * radius, Mathf.Sin(j * Mathf.Deg2Rad) * radius);
+                    var bullet = Instantiate(bossBullet1, Pos, Quaternion.Euler(0, 0, j));
+                    bullet.shotOnAwake = false;
+                    bullets2.Push(bullet);
+                    yield return wait;
+                }
+                radius += 0.0015f;
+            }
+        }
+
+        foreach (var bullet in bullets1)
         {
             bullet.Shot();
+            if (bullets2.Count > 0)
+            {
+                var bullet2 = bullets2.Pop();
+                bullet2.Shot();
+            }
             yield return wait;
         }
     }
     private IEnumerator Pattern5()
     {
-        yield break;
+        var count = 0;
+        var dir = 0f;
+        var dirAddvalue = 0f;
+        var dirMultipler = 1;
+
+        while (count < 5)
+        {
+            var randPosY = Random.Range(-3.5f, 4f);
+            var randPosX = Random.Range(2, 7);
+            var movePos = new Vector3(randPosX, randPosY);
+
+            yield return MovePosition(transform.position, movePos, 0.15f);
+
+            for (int i = 0; i < 50; i++)
+            {
+                for (int j = 0; j < 360; j += 360 / 5)
+                {
+                    var bullet = Instantiate(bossBullet1, transform.position, Quaternion.Euler(0, 0, j + dir));
+                    bullet.bulletSpeed = 9f;
+                }
+                if (i <= 25) dirAddvalue += 0.25f;
+                dir += (2.5f + dirAddvalue) * dirMultipler;          
+                yield return new WaitForSeconds(0.05f);
+            }
+
+            dirMultipler *= -1;
+            dirAddvalue = 0f;
+            count++;
+        }
+        yield return StartCoroutine(MovePosition(transform.position, centerPos, 1f));
+
     }
 
     #region 공용 패턴 함수
